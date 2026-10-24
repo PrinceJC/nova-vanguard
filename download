@@ -1,0 +1,7 @@
+node_modules/
+.env*
+.vercel/
+tests/test.html
+tests/icon*
+tests/*.webmanifest
+tests/*.html.bak

@@ -3,7 +3,8 @@
   "outputDirectory": "public",
   "functions": {
     "api/run-submit.js": { "maxDuration": 30 },
-    "api/run-start.js": { "maxDuration": 10 }
+    "api/run-start.js": { "maxDuration": 10 },
+    "api/login.js": { "maxDuration": 10 }
   },
   "headers": [
     { "source": "/(.*)", "headers": [

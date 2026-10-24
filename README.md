@@ -22,21 +22,23 @@ Without an SMS provider, players simply use email. The game shows a clear messag
 ## 2. Set up Supabase (about 10 minutes)
 
 1. Create a project at **supabase.com**.
-2. **SQL Editor** → run both files in `supabase/migrations/`, oldest first:
-   - `20261024000000_lumi_blaster.sql` — tables, row-level security, username rules, leaderboards
-   - `20261025000000_public_leaderboard.sql` — lets signed-out visitors see the landing-page leaderboard
-3. **Authentication → Providers → Email:** enabled. Turn **Confirm email** on.
-4. **Authentication → Email Templates → Magic Link:** make sure the body contains the code, for example:
+2. **SQL Editor** → run both files in `supabase/migrations/`, oldest first.
+3. **Authentication → Providers (Sign In / Providers) → Email:** enabled.
+   - **Confirm email ON** (recommended): new players verify with a 6-digit code (or by tapping the link) before playing.
+   - **Confirm email OFF**: players sign up with username + password and play immediately. Quickest for testing.
+4. **Custom SMTP (needed to edit emails):** Supabase locks the email templates until you add your own sender. Under **Authentication → Emails → SMTP Settings**, enable custom SMTP. A Gmail account works for small games: host `smtp.gmail.com`, port `587`, your Gmail address as username, and a Google **App password** (Google Account → Security → App passwords; needs 2-Step Verification).
+5. **Authentication → Emails → Templates:** put the code in these templates so the email matches the game’s “enter your code” screen:
+   - **Confirm signup**, **Magic Link** (used for one-time-code sign-in and password reset):
    ```html
-   <h2>Your Nova Vanguard sign-in code</h2>
+   <h2>Your Nova Vanguard code</h2>
    <p style="font-size:28px;letter-spacing:6px"><b>{{ .Token }}</b></p>
-   <p>Or <a href="{{ .ConfirmationURL }}">tap here to sign in</a>.</p>
+   <p>Or <a href="{{ .ConfirmationURL }}">tap here</a> instead.</p>
    ```
-   Do the same for the **Confirm signup** template.
-5. **Project Settings → Authentication → SMTP Settings:** enter your email provider's SMTP details.
-6. *(Optional)* **Authentication → Providers → Phone:** enable it and enter your SMS provider credentials.
-7. **Authentication → URL Configuration:** set **Site URL** to your Vercel address (for example `https://nova-vanguard.vercel.app`) and add it under **Redirect URLs**.
-8. **Project Settings → API:** copy the **Project URL**, the **anon public** key and the **service_role** key.
+   Until you do this, emails contain only a link. That still works: the game tells players to tap it, and the open game screen continues automatically.
+6. *(Optional)* **Authentication → Providers → Phone:** enable it and connect an SMS provider (Twilio, MessageBird, Vonage or Textlocal). Without one, players use email; the game explains this if someone tries a phone number.
+7. **Authentication → URL Configuration:** set **Site URL** to your Vercel address and add it under **Redirect URLs**.
+8. **Authentication → Rate Limits:** username sign-ins are processed by the game’s server, so they all reach Supabase from Vercel. If many players sign in at once, raise the sign-in limit here.
+9. **Project Settings → API Keys → Legacy API keys:** copy the **anon public** and **service_role** keys (both start with `eyJ`). **Project Settings → Data API:** copy the **Project URL** (`https://xxxx.supabase.co`).
 
 ## 3. Deploy on Vercel
 
@@ -82,6 +84,8 @@ Tuning lives in data: `ENEMIES` and `SHOT_PATTERNS` in `src/engine.js`, worlds a
 
 ## 6. How ranked endless stays fair
 
+Ranked rules are at **version 3** (contact-only enemies, rising spawn rate).
+
 - `run-start` creates a server-side run session with a random seed.
 - The seed fully determines the enemy schedule, elite placement and drops, so every player faces the same rules.
 - The browser records only events (kills, pickups, hits, blasts). `run-submit` rebuilds the schedule, checks every event against timing and firepower limits, and **computes the score itself**.
@@ -94,9 +98,23 @@ npm test             # weapon/elite, endless anti-cheat, API, saves/migration, d
 ```
 Browser tests (`tests/*.py`) use Playwright with a **test-only** fake backend (`tests/fake-backend.js`, built into `tests/test.html` only, never into `public/`).
 
-## 8. Gameplay reference
+## 8. Accounts
+
+- **Sign up:** username → password (8+ characters with a letter and a number) → email or mobile number → verify (if enabled) → play.
+- **Sign in:** username + password. The server (`api/login.js`) looks up the account privately, so emails and phone numbers are never revealed.
+- **Forgot password:** a one-time code to the account’s email or phone, then choose a new password. **Profile → Password** changes it while signed in.
+- **Older accounts** created with one-time codes only: choose **Sign in with a one-time code**, then set a password in **Profile**.
+- **Phone numbers:** pick the country code and type the rest (spaces, dashes and a leading 0 are fine). The form shows the expected format and the exact number it will text.
+
+## 9. Heroes
+
+20 heroes, 5 per weapon type: **cannons** (Nova, Riko, Pip, Dax, Luma), **bows** (Aria, Kestrel, Mochi, Haru, Wren), **sniper rifles** (Lumi, Sable, Vega, Ines, Tamsin), and **rifles/guns** (Juno, Orla, Zephyr, Cass, Elio). Weapon type changes artwork and projectiles only; damage, fire rate, speed, health and hitbox are identical. Avatar IDs are unchanged from earlier versions (Nova uses the id `lumi`), so unlocks and selections carry over. Nova’s portrait is `tools/static/nova-portrait.jpg`; replace any portrait or sprite without touching game logic.
+
+## 10. Gameplay reference
 
 - **Weapon:** 1 shot → 3 shots (centre + two angled) → 6 shots (three symmetrical pairs). Every elite drops one upgrade. At max power each extra upgrade is worth +1,000 points.
+- **Campaign upgrades last for the current run only.** Continuing to the next level keeps them; a new run, a level started from the map, or a retry after game over starts with a single shot.
+- **Endless:** enemies don’t shoot; they hurt on contact. Every 20 seconds the threat level rises and enemies spawn more often, and enemy speed climbs smoothly over the run. Everything resets each new run.
 - **Health:** at most 2 health pickups spawn per campaign level, and at most 2 per 5 minutes in endless.
 - **Special blast (E / Blast button):** brief charge, then an expanding wave from the muzzle that damages and clears enemy bullets exactly where the ring passes. 14-second recharge.
 - **Ranked periods:** daily resets at midnight and weekly at Monday 00:00, Asia/Manila time.
