@@ -46,4 +46,4 @@ function handler(fn) {
     }
   };
 }
-module.exports = { requireUser, store, handler };
+module.exports = { requireUser, store, handler, adminClient };
